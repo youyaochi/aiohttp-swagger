@@ -47,7 +47,8 @@ def generate_doc_from_each_end_point(
         description: str = "Swagger API definition",
         api_version: str = "1.0.0",
         title: str = "Swagger API",
-        contact: str = ""):
+        contact: str = "",
+        template: str = None):
     # Clean description
     _start_desc = 0
     for i, word in enumerate(description):
@@ -58,7 +59,7 @@ def generate_doc_from_each_end_point(
 
     # Load base Swagger template
     swagger_base = (
-        Template(open(join(SWAGGER_TEMPLATE, "swagger.yaml"), "r").read()).render(
+        Template(open(template or join(SWAGGER_TEMPLATE, "swagger.yaml"), "r").read()).render(
             description=cleaned_description,
             version=api_version,
             title=title,

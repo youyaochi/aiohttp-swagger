@@ -6,6 +6,8 @@ from aiohttp import web
 from aiohttp.hdrs import METH_ANY, METH_ALL
 from jinja2 import Template
 
+from .utils import DefaultOrderedDict
+
 try:
     import ujson as json
 except ImportError: # pragma: no cover
@@ -91,7 +93,7 @@ def generate_doc_from_each_end_point(
 
     # The Swagger OBJ
     swagger = yaml.load(swagger_base)
-    swagger["paths"] = defaultdict(dict)
+    swagger["paths"] = DefaultOrderedDict(dict)
 
     for route in app.router.routes():
 

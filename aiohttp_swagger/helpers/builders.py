@@ -17,9 +17,7 @@ except ImportError: # pragma: no cover
 SWAGGER_TEMPLATE = abspath(join(dirname(__file__), "..", "templates"))
 
 
-def _build_doc_from_func_doc(route):
-    end_point_doc = route.handler.__doc__.splitlines()
-
+def _extract_swagger_docs(end_point_doc, method="get"):
     # Find Swagger start point in doc
     end_point_swagger_start = 0
     for i, doc_line in enumerate(end_point_doc):

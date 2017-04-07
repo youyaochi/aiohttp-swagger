@@ -3,11 +3,12 @@ from os.path import abspath, dirname, join
 
 import yaml
 from aiohttp import web
+from aiohttp.hdrs import METH_ANY, METH_ALL
 from jinja2 import Template
 
 try:
     import ujson as json
-except ImportError:
+except ImportError: # pragma: no cover
     import json
 
 
@@ -35,10 +36,30 @@ def _build_doc_from_func_doc(route):
                            "from docstring ⚠",
             "tags": ["Invalid Swagger"]
         }
+    return {method: end_point_swagger_doc}
 
-    # Add to general Swagger doc
-    return {route.method.lower(): end_point_swagger_doc}
+def _build_doc_from_func_doc(route):
 
+    out = {}
+
+    if issubclass(route.handler, web.View) and route.method == METH_ANY:
+        method_names = {
+            attr for attr in dir(route.handler) \
+            if attr.upper() in METH_ALL
+        }
+        for method_name in method_names:
+            method = getattr(route.handler, method_name)
+            if method.__doc__ is not None and "---" in method.__doc__:
+                end_point_doc = method.__doc__.splitlines()
+                out.update(_extract_swagger_docs(end_point_doc, method=method_name))
+
+    else:
+        try:
+            end_point_doc = route.handler.__doc__.splitlines()
+        except AttributeError:
+            return {}
+        out.update(_extract_swagger_docs(end_point_doc))
+    return out
 
 def generate_doc_from_each_end_point(
         app: web.Application,
@@ -58,14 +79,15 @@ def generate_doc_from_each_end_point(
     cleaned_description = "    ".join(description[_start_desc:].splitlines())
 
     # Load base Swagger template
-    swagger_base = (
-        Template(open(template or join(SWAGGER_TEMPLATE, "swagger.yaml"), "r").read()).render(
-            description=cleaned_description,
-            version=api_version,
-            title=title,
-            contact=contact,
-            base_path=api_base_url)
-    )
+    with open(template or join(SWAGGER_TEMPLATE, "swagger.yaml"), "r") as f:
+        swagger_base = (
+            Template(f.read()).render(
+                description=cleaned_description,
+                version=api_version,
+                title=title,
+                contact=contact,
+                base_path=api_base_url)
+        )
 
     # The Swagger OBJ
     swagger = yaml.load(swagger_base)
@@ -78,10 +100,11 @@ def generate_doc_from_each_end_point(
         # If route has a external link to doc, we use it, not function doc
         if getattr(route.handler, "swagger_file", False):
             try:
-                end_point_doc = {
-                    route.method.lower():
-                        yaml.load(open(route.handler.swagger_file, "r").read())
-                }
+                with open(route.handler.swagger_file, "r") as f:
+                    end_point_doc = {
+                        route.method.lower():
+                            yaml.load(f.read())
+                    }
             except yaml.YAMLError:
                 end_point_doc = {
                     route.method.lower(): {
@@ -101,8 +124,7 @@ def generate_doc_from_each_end_point(
                 }
 
         # Check if end-point has Swagger doc
-        elif (route.handler.__doc__ is not None
-              and "---" in route.handler.__doc__):
+        else:
             end_point_doc = _build_doc_from_func_doc(route)
 
         # there is doc available?
